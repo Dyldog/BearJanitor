@@ -61,20 +61,32 @@ dbQueue.inDatabase { db in
     
     duplicates.forEach { duplicate in
         let title = (duplicate.value.first!.title + " Changes").urlEncode()
-        let lines: [String] = duplicate.value.enumerated().map { current in
+        let notes = duplicate.value.sorted(by: { $0.orderDate < $1.orderDate })
+        let lines: [String] = notes.enumerated().compactMap { current in
             let versionLink: String = "[Version \(current.offset + 1)](\(current.element.openURL))"
             let trashLink: String = "[Trash](\(current.element.deleteURL))"
             var lineChanges: String = ""
             if current.offset > 0 {
-                let previousText = duplicate.value[current.offset - 1].content.lines
+                let previousNote = duplicate.value[current.offset - 1]
+                let previousText = previousNote.content.lines
                 let currentText = current.element.content.lines
 //                let diff = current.element.content.diff(previousText)
                 let diff = patch(from: previousText, to: currentText)
                 
+                guard notes.count != 2, diff.isEmpty else {
+                    NSWorkspace.shared.open(URL(string:previousNote.deleteURL)!)
+                    return nil
+                }
                 if diff.isEmpty {
                     lineChanges = " No changes"
                 } else {
-                    lineChanges = " \(diff.count) changes"
+                    let nums:(Int, Int) = diff.reduce(into: (0,0), {
+                        switch $1 {
+                        case .deletion: $0.0 += 1
+                        case .insertion: $0.1 += 1
+                        }
+                    })
+                    lineChanges = " \(diff.count) changes (D\(nums.0)/I\(nums.1))"
 //                    lineChanges += "\n" + diff.map { diffStep in
 //                        return "\t\(diffStep.text(old: previousText, new: currentText))"
 //                    }.joined(separator: "\n")
@@ -83,8 +95,10 @@ dbQueue.inDatabase { db in
             return "- \(versionLink) \(trashLink)\(lineChanges)"
         }
 
-        let lineString = lines.joined(separator: "\n").urlEncode()
-        let urlString = "bear://x-callback-url/create?title=\(title)&text=\(lineString)&tags=duplicate&show_window=no"
-        NSWorkspace.shared.open(URL(string:urlString)!)
+        if lines.count > 1 {
+            let lineString = lines.joined(separator: "\n").urlEncode()
+            let urlString = "bear://x-callback-url/create?title=\(title)&text=\(lineString)&tags=duplicate&show_window=no"
+            NSWorkspace.shared.open(URL(string:urlString)!)
+        }
     }
 }

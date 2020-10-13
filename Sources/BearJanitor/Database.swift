@@ -12,6 +12,7 @@ struct Note {
     let id: String
     let title: String
     let content: String
+    let orderDate: String
     
     var openURL: String { return "bear://x-callback-url/open-note?id=\(id)" }
     var deleteURL: String { "bear://x-callback-url/trash?id=\(id)" }
@@ -31,13 +32,14 @@ final class SQLiteDatabase: LocalDatabase {
     func findNotes() throws -> [Note] {
         let rows = try Row.fetchCursor(
             db,
-            sql: "SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT FROM ZSFNOTE WHERE ZTRASHED=0"
+            sql: "SELECT ZUNIQUEIDENTIFIER, ZTITLE, ZTEXT, ZCREATIONDATE FROM ZSFNOTE WHERE ZTRASHED=0"
         )
         
         return try Array(rows.map {
             Note(id: $0["ZUNIQUEIDENTIFIER"],
                  title: $0["ZTITLE"],
-                 content: $0["ZTEXT"]
+                 content: $0["ZTEXT"],
+                 orderDate: $0["ZCREATIONDATE"]
             )
         })
     }
